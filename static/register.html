@@ -1,45 +1,57 @@
 <!DOCTYPE html>
 <html lang="zxx">
-
 <head>
-<title>Login</title>
-<!-- Meta tags -->
-<meta charset="UTF-8">
-<meta content="width=device-width, initial-scale=1.0" name="viewport">
-<meta content="ie=edge" http-equiv="X-UA-Compatible">
-<!-- //Meta tags -->
-<link href="css/style.css" media="all" rel="stylesheet" type="text/css" /><!-- Style-CSS -->
-<link href="css/font-awesome.css" rel="stylesheet"><!-- font-awesome-icons -->
-</head>
+  <title>Register</title>
+  <meta charset="UTF-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <meta content="ie=edge" http-equiv="X-UA-Compatible">
+  <link href="css/style.css" rel="stylesheet" type="text/css">
+  <link href="css/font-awesome.css" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
+</head>
 <body>
 <section class="w3l-form-36">
-	<div class="form-36-mian section-gap">
-		<div class="wrapper">
-			<div class="form-inner-cont">
-				<h3>Register now</h3>
-				<form action="/user/register" class="signin-form" method="post">
-					<div class="form-input">
-						<span aria-hidden="true" class="fa fa-user-o"></span> <input name="username" placeholder="Username"
-							required type="text" />
-					</div>
-					<div class="form-input">
-						<span aria-hidden="true" class="fa fa-key"></span> <input name="password" placeholder="Password" required
-							type="password" />
-					</div>
-					<div class="login-remember d-grid">
-
-						<button class="btn theme-button">Register</button>
-            <a class="btn theme-button" href="/static">Back to Login</a>
-          </div>
-
-				</form>
-
-			</div>
-
-		</div>
-	</div>
+  <div class="form-36-mian section-gap">
+    <div class="wrapper">
+      <div class="form-inner-cont">
+        <h3>Register now</h3>
+        <div class="form-input">
+          <span aria-hidden="true" class="fa fa-user-o"></span>
+          <input id="username" maxlength="20" minlength="4" name="username" placeholder="Username" required type="text">
+        </div>
+        <div class="form-input">
+          <span aria-hidden="true" class="fa fa-key"></span>
+          <input id="password" maxlength="20" minlength="4" name="password" placeholder="Password" required type="password">
+        </div>
+        <div class="login-remember d-grid">
+          <button class="btn theme-button" id="registerBtn">Register</button>
+          <a class="btn theme-button" href="/static">Back to Login</a>
+        </div>
+      </div>
+    </div>
+  </div>
 </section>
-</body>
 
+<script>
+  document.getElementById('registerBtn').addEventListener('click', function(e) {
+    e.preventDefault();
+    const userData = {
+      username: document.getElementById('username').value, // Corrected
+      password: document.getElementById('password').value,
+    };
+
+    axios.put('/register', userData)
+      .then(function (response) {
+        alert(response.data.message);
+        // Redirect to login page or somewhere else after successful registration
+        window.location.href = '/static';
+      })
+      .catch(function (error) {
+        alert(error.response.data.message);
+        console.error('Registration error:', error);
+      });
+  });
+</script>
+</body>
 </html>

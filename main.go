@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -8,19 +9,33 @@ import (
 	"net/http"
 )
 
-func getSession(c *gin.Context) (bool, string, string) {
-	session := sessions.Default(c)
-	username := session.Get("username")
-	role := session.Get("role")
-	if username == nil {
-		return false, "", ""
+func RoleAuthMiddleware(allowRole string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+		role := session.Get("role")
+		if username == nil {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Not logged in",
+			})
+			c.Abort() // 防止调用后续的处理器
+			return
+		} else if role != allowRole {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"message": "Unauthorized",
+			})
+			c.Abort() // 防止调用后续的处理器
+			return
+		}
+		// 如果通过认证，则继续处理请求
+		c.Next()
 	}
-	return true, username.(string), role.(string)
 }
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+
 	//r.Use(cors.Default())
 	db, _ := connectDB()
 	r.Static("/static", "./static")
@@ -32,7 +47,7 @@ func main() {
 	r.POST("/login", func(c *gin.Context) {
 		var loginRequest model.User
 
-		err := c.ShouldBind(&loginRequest)
+		err := c.ShouldBindJSON(&loginRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
@@ -54,7 +69,7 @@ func main() {
 				session := sessions.Default(c)
 				session.Set("username", user[0].Username)
 				session.Set("role", user[0].Role)
-				session.Save()
+				_ = session.Save()
 
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Login successful",
@@ -72,9 +87,9 @@ func main() {
 	})
 
 	// User Register API
-	r.POST("/user/register", func(c *gin.Context) {
+	r.PUT("/register", func(c *gin.Context) {
 		var registerRequest model.User
-		if err := c.ShouldBind(&registerRequest); err != nil {
+		if err := c.ShouldBindJSON(&registerRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -100,15 +115,39 @@ func main() {
 	r.GET("/logout", func(c *gin.Context) {
 		session := sessions.Default(c)
 		session.Clear()
-		session.Save()
+		_ = session.Save()
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Logout successful",
 		})
 	})
 
-	err := r.Run(":8080")
-	if err != nil {
-		return
-	}
+	//isExist Account API
+	r.GET("/open", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
+		data, _ := c.GetRawData()
+		var jsonData map[string]interface{}
+		_ = json.Unmarshal(data, &jsonData)
+
+		typeValue := jsonData["type"].(string)
+
+		var customer model.Customer
+		var account []model.Account
+		db.Select("id").Where("username = ?", username).First(&customer)
+		db.Select("type").Where("id = ?", customer.ID).Find(&account)
+
+		for _, v := range account {
+			if v.Type == typeValue {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Account already exists",
+				})
+				return
+			}
+		}
+
+	})
+
+	_ = r.Run(":8080")
 
 }
