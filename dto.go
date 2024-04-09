@@ -1,0 +1,33 @@
+package main
+
+import (
+	"math/big"
+	"time"
+)
+
+type OpenAccountRequest struct {
+	FName                   string    `json:"fName"`
+	LName                   string    `json:"lName"`
+	State                   string    `json:"state"`
+	City                    string    `json:"city"`
+	Zip                     string    `json:"zip"`
+	OpenDate                time.Time `json:"openDate"`
+	Address                 string    `json:"address"`
+	Type                    string    `json:"type"`
+	Status                  bool      `json:"status"`
+	Amount                  big.Float `json:"amount"`
+	Month                   int       `json:"month"`
+	LoanType                string    `json:"loanType"`
+	HouseBuildYear          string    `json:"houseBuildYear"`
+	InsuranceAccNo          int64     `json:"insuranceAccNo"`
+	InsuranceCompanyName    string    `json:"insuranceCompanyName"`
+	InsuranceCompanyState   string    `json:"insuranceCompanyState"`
+	InsuranceCompanyCity    string    `json:"insuranceCompanyCity"`
+	InsuranceCompanyZip     string    `json:"insuranceCompanyZip"`
+	InsuranceCompanyAddress string    `json:"insuranceCompanyAddress"`
+	InsuranceCompanyPremium big.Float `json:"insuranceCompanyPremium"`
+	UniversityName          string    `json:"universityName"`
+	StudentID               string    `json:"studentID"`
+	EducationType           string    `json:"educationType"`
+	ExpectGradDate          time.Time `json:"expectGradDate"`
+}

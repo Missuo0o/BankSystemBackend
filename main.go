@@ -1,36 +1,13 @@
 package main
 
 import (
-	"encoding/json"
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	"net/http"
 )
-
-func RoleAuthMiddleware(allowRole string) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		session := sessions.Default(c)
-		username := session.Get("username")
-		role := session.Get("role")
-		if username == nil {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"message": "Not logged in",
-			})
-			c.Abort() // 防止调用后续的处理器
-			return
-		} else if role != allowRole {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"message": "Unauthorized",
-			})
-			c.Abort() // 防止调用后续的处理器
-			return
-		}
-		// 如果通过认证，则继续处理请求
-		c.Next()
-	}
-}
 
 func main() {
 	gin.SetMode(gin.ReleaseMode)
@@ -121,33 +98,132 @@ func main() {
 		})
 	})
 
-	//isExist Account API
-	r.GET("/open", RoleAuthMiddleware("C"), func(c *gin.Context) {
+	// Open Account API
+	r.PUT("/open", func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
-		data, _ := c.GetRawData()
-		var jsonData map[string]interface{}
-		_ = json.Unmarshal(data, &jsonData)
-
-		typeValue := jsonData["type"].(string)
-
-		var customer model.Customer
-		var account []model.Account
-		db.Select("id").Where("username = ?", username).First(&customer)
-		db.Select("type").Where("id = ?", customer.ID).Find(&account)
-
-		for _, v := range account {
-			if v.Type == typeValue {
-				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "Account already exists",
-				})
-				return
-			}
+		var openAccountRequest OpenAccountRequest
+		err := c.ShouldBindJSON(&openAccountRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
 		}
 
-	})
+		// select type from account where id = (select id from customer where username = username) and type = typeValue
+		var accountType string
+		db.Model(model.Account{}).Select("type").
+			Where("id = (?)", db.Model(model.Customer{}).
+				Select("id").Where("username = ?", username)).Where("type = ?", openAccountRequest.Type).Find(&accountType)
 
+		if accountType != "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account already exists",
+			})
+			return
+		}
+
+		var customer model.Customer
+		var account model.Account
+		var checking model.Checking
+		var saving model.Saving
+		var loan model.Loan
+		var studentLoan model.StudentLoan
+		var homeLoan model.HomeLoan
+
+		_ = copier.Copy(&customer, &openAccountRequest)
+		_ = copier.Copy(&account, &openAccountRequest)
+		_ = copier.Copy(&checking, &openAccountRequest)
+		_ = copier.Copy(&saving, &openAccountRequest)
+		_ = copier.Copy(&loan, &openAccountRequest)
+		_ = copier.Copy(&studentLoan, &openAccountRequest)
+		_ = copier.Copy(&homeLoan, &openAccountRequest)
+
+		// if select id from customer where username = username is null, then insert into customer
+		db.Where("username = ?", username).First(&customer)
+		if customer.ID == 0 {
+			db.Create(&customer)
+		}
+
+		uniqueNumberString := generateUniqueRandomNumberString(db)
+		account.Number = uniqueNumberString
+		checking.Number = uniqueNumberString
+		saving.Number = uniqueNumberString
+		loan.Number = uniqueNumberString
+		studentLoan.Number = uniqueNumberString
+		homeLoan.Number = uniqueNumberString
+
+		switch requestType := openAccountRequest.Type; requestType {
+		case "C":
+			db.Begin()
+			if err := db.Create(&account).Error; err != nil {
+				db.Rollback()
+			}
+			if err := db.Create(&checking).Error; err != nil {
+				db.Rollback()
+			}
+			db.Commit()
+
+		case "S":
+			db.Begin()
+			if err := db.Create(&account).Error; err != nil {
+				db.Rollback()
+			}
+			if err := db.Create(&saving).Error; err != nil {
+				db.Rollback()
+			}
+			db.Commit()
+
+		case "L":
+			// SELECT l.type
+			//FROM loan l
+			//JOIN account a ON l.number = a.number
+			//JOIN customer c ON a.id = c.id
+			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
+			db.Model(model.Loan{}).Select("type").
+				Joins("JOIN account a ON loan.number = a.number").
+				Joins("JOIN customer c ON a.id = c.id").
+				Where("loan.type = '?' AND c.username = ?", openAccountRequest.LoanType, username).Find(&loan)
+			switch openAccountRequest.LoanType {
+			case "student":
+				db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					db.Rollback()
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					db.Rollback()
+				}
+				if err := db.Create(&studentLoan).Error; err != nil {
+					db.Rollback()
+				}
+				db.Commit()
+			case "home":
+				db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					db.Rollback()
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					db.Rollback()
+				}
+				if err := db.Create(&homeLoan).Error; err != nil {
+					db.Rollback()
+				}
+				db.Commit()
+			case "personal":
+				db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					db.Rollback()
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					db.Rollback()
+				}
+				db.Commit()
+
+			}
+		}
+	})
 	_ = r.Run(":8080")
 
 }
