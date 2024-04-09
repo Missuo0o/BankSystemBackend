@@ -2,7 +2,6 @@ package main
 
 import (
 	"math/big"
-	"time"
 )
 
 type OpenAccountRequest struct {
@@ -11,7 +10,6 @@ type OpenAccountRequest struct {
 	State                   string    `json:"state"`
 	City                    string    `json:"city"`
 	Zip                     string    `json:"zip"`
-	OpenDate                time.Time `json:"openDate"`
 	Address                 string    `json:"address"`
 	Type                    string    `json:"type"`
 	Status                  bool      `json:"status"`
@@ -29,5 +27,5 @@ type OpenAccountRequest struct {
 	UniversityName          string    `json:"universityName"`
 	StudentID               string    `json:"studentID"`
 	EducationType           string    `json:"educationType"`
-	ExpectGradDate          time.Time `json:"expectGradDate"`
+	ExpectGradDate          string    `json:"expectGradDate"`
 }

@@ -4,25 +4,25 @@
 
 package model
 
-import (
-	"time"
-)
+//import (
+//	"time"
+//)
 
 const TableNameAccount = "account"
 
 // Account mapped from table <account>
 type Account struct {
-	Number   int64     `gorm:"column:number;primaryKey" json:"number"`
-	Fname    string    `gorm:"column:fname;not null" json:"fname"`
-	Lname    string    `gorm:"column:lname;not null" json:"lname"`
-	State    string    `gorm:"column:state;not null" json:"state"`
-	City     string    `gorm:"column:city;not null" json:"city"`
-	Zip      string    `gorm:"column:zip;not null" json:"zip"`
-	OpenDate time.Time `gorm:"column:open_date;not null" json:"open_date"`
-	ID       int64     `gorm:"column:id;not null" json:"id"`
-	Address  string    `gorm:"column:address;not null" json:"address"`
-	Type     string    `gorm:"column:type;not null" json:"type"`
-	Status   bool      `gorm:"column:status;not null" json:"status"`
+	Number   int64  `gorm:"column:number;primaryKey" json:"number"`
+	Fname    string `gorm:"column:fname;not null" json:"fname"`
+	Lname    string `gorm:"column:lname;not null" json:"lname"`
+	State    string `gorm:"column:state;not null" json:"state"`
+	City     string `gorm:"column:city;not null" json:"city"`
+	Zip      string `gorm:"column:zip;not null" json:"zip"`
+	OpenDate string `gorm:"column:open_date;not null" json:"open_date"`
+	ID       int64  `gorm:"column:id;not null" json:"id"`
+	Address  string `gorm:"column:address;not null" json:"address"`
+	Type     string `gorm:"column:type;not null" json:"type"`
+	Status   bool   `gorm:"column:status;not null" json:"status"`
 }
 
 // TableName Account's table name

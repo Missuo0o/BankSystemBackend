@@ -1,12 +1,14 @@
 package main
 
 import (
+	"fmt"
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"net/http"
+	"time"
 )
 
 func main() {
@@ -67,11 +69,13 @@ func main() {
 	r.PUT("/register", func(c *gin.Context) {
 		var registerRequest model.User
 		if err := c.ShouldBindJSON(&registerRequest); err != nil {
+			fmt.Println(err)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
+
 		registerRequest.Password = hashPassword(registerRequest.Password)
 		registerRequest.Role = "C"
 		result := db.Create(registerRequest)
@@ -116,7 +120,8 @@ func main() {
 		var accountType string
 		db.Model(model.Account{}).Select("type").
 			Where("id = (?)", db.Model(model.Customer{}).
-				Select("id").Where("username = ?", username)).Where("type = ?", openAccountRequest.Type).Find(&accountType)
+				Select("id").Where("username = ?", username)).
+			Where("type = ?", openAccountRequest.Type).Find(&accountType)
 
 		if accountType != "" {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -154,6 +159,7 @@ func main() {
 		loan.Number = uniqueNumberString
 		studentLoan.Number = uniqueNumberString
 		homeLoan.Number = uniqueNumberString
+		account.OpenDate = time.Now().Format("2006-01-02")
 
 		switch requestType := openAccountRequest.Type; requestType {
 		case "C":
@@ -182,10 +188,16 @@ func main() {
 			//JOIN account a ON l.number = a.number
 			//JOIN customer c ON a.id = c.id
 			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
+			var loanType string
 			db.Model(model.Loan{}).Select("type").
 				Joins("JOIN account a ON loan.number = a.number").
 				Joins("JOIN customer c ON a.id = c.id").
-				Where("loan.type = '?' AND c.username = ?", openAccountRequest.LoanType, username).Find(&loan)
+				Where("loan.type = '?' AND c.username = ?", openAccountRequest.LoanType, username).Find(&loanType)
+			if loanType != "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "LoanAccount already exists",
+				})
+			}
 			switch openAccountRequest.LoanType {
 			case "student":
 				db.Begin()
@@ -224,6 +236,41 @@ func main() {
 			}
 		}
 	})
+
+	r.GET("/account", func(c *gin.Context) {
+		var accounts []model.Account
+		db.Model(model.Account{}).Find(&accounts)
+		for i := range accounts {
+			fmt.Println(accounts[i].OpenDate)
+		}
+	})
+
+	// Reset Password API
+	r.POST("/reset", func(c *gin.Context) {
+		var resetRequest model.User
+		err := c.ShouldBind(&resetRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		// update user set password = hashPassword(resetRequest.Password) where username = resetRequest.Username and keyword = resetRequest.Keyword
+		result := db.Model(&model.User{}).Where("username = ? AND keyword = ?", resetRequest.Username, resetRequest.Keyword).Update("password", hashPassword(resetRequest.Password))
+
+		if result.RowsAffected == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid username or keyword",
+			})
+			return
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Reset password successful",
+			})
+		}
+	})
+
 	_ = r.Run(":8080")
 
 }

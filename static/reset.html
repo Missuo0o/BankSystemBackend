@@ -15,7 +15,7 @@
   <div class="form-36-mian section-gap">
     <div class="wrapper">
       <div class="form-inner-cont">
-        <h3>Register now</h3>
+        <h3>Reset now</h3>
         <div class="form-input">
           <span aria-hidden="true" class="fa fa-user-o"></span>
           <input id="username" maxlength="20" minlength="4" name="username" placeholder="Username" required type="text">
@@ -29,7 +29,7 @@
           <input id="keyword" maxlength="20" minlength="4" name="keyword" placeholder="Keyword" required type="password">
         </div>
         <div class="login-remember d-grid">
-          <button class="btn theme-button" id="registerBtn">Register</button>
+          <button class="btn theme-button" id="registerBtn">Reset</button>
           <a class="btn theme-button" href="/static">Back to Login</a>
         </div>
       </div>
@@ -46,7 +46,7 @@
       keyword: document.getElementById('keyword').value,
     };
 
-    axios.put('/register', userData)
+    axios.post('/reset', userData)
       .then(function (response) {
         alert(response.data.message);
         // Redirect to login page or somewhere else after successful registration
