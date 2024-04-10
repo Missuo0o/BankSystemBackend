@@ -2,13 +2,15 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"time"
+
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
-	"net/http"
-	"time"
+	"gorm.io/gorm"
 )
 
 func main() {
@@ -269,6 +271,56 @@ func main() {
 				"message": "Reset password successful",
 			})
 		}
+	})
+
+	//Transfer Fund API
+	type TransferRequest struct {
+		FromAccountID string  `json:"fromAccountId"`
+		ToAccountID   string  `jason:"toAccountId"`
+		Amount        float64 `json:"amount"`
+	}
+
+	r.POST("/transfer", func(c *gin.Context) {
+		var transferReq TransferRequest
+		if err := c.ShouldBindJSON(&tranferReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message: Invalid request"})
+			return
+		}
+		// Start a database transaction
+		tx := db.Begin()
+
+		//Check if the source account has sufficient fund to transfer
+		var sourceBalance float64
+		tx.Model(&model.Account{}).Where("id=?", tranferReq.FromAccountID).Select("balance").Row().Scan(&sourceBalance)
+
+		if sourceBalance < transferReq.Amount {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{"message: Insufficient fund "})
+			return
+
+		}
+		//Deduct the amount of transferred fund from source account balance
+		if err := tx.Model(&model.Account{}).Where("id = ?"), transferReq.FromAccountID.Update("balance", gorm.Expr("balance - ?", transferReq.Amount)).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Transfer failed"})
+			return
+		}
+
+		//Add amount to the destination account
+		if err := tx.Model(&model.Account{}).Where("id = ?", transferReq.ToAccountID).Update("balance", gorm.Expr("balance + ?", transferReq.Amount)).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Transfer failed"})
+			return
+		}
+
+		//Commit the transaction
+		if err := tx.Commit().Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Transfer failed"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Transfer successful"})
+
 	})
 
 	_ = r.Run(":8080")
