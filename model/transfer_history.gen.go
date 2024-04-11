@@ -5,7 +5,6 @@
 package model
 
 import (
-	"math/big"
 	"time"
 )
 
@@ -16,9 +15,9 @@ type TransferHistory struct {
 	ID                int64     `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
 	FromAccountNumber int64     `gorm:"column:from_account_number;not null" json:"from_account_number"`
 	ToAccountNumber   int64     `gorm:"column:to_account_number;not null" json:"to_account_number"`
-	Amount            big.Float `gorm:"column:amount;not null" json:"amount"`
+	Amount            float64   `gorm:"column:amount;not null" json:"amount"`
 	TransferDate      time.Time `gorm:"column:transfer_date;not null" json:"transfer_date"`
-	Status            string    `gorm:"column:status;not null" json:"status"`
+	AccountType       string    `gorm:"column:account_type;not null" json:"account_type"`
 	Reason            string    `gorm:"column:reason" json:"reason"`
 }
 

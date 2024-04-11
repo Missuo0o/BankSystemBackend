@@ -4,15 +4,13 @@
 
 package model
 
-import "math/big"
-
 const TableNameChecking = "checking"
 
 // Checking mapped from table <checking>
 type Checking struct {
-	Number  int64     `gorm:"column:number;primaryKey" json:"number"`
-	Charge  big.Float `gorm:"column:charge;not null" json:"charge"`
-	Balance big.Float `gorm:"column:balance;not null;default:0.00" json:"balance"`
+	Number  int64   `gorm:"column:number;primaryKey" json:"number"`
+	Charge  float64 `gorm:"column:charge;not null" json:"charge"`
+	Balance float64 `gorm:"column:balance;not null;default:0.00" json:"balance"`
 }
 
 // TableName Checking's table name

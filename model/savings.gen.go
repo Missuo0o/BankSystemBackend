@@ -4,15 +4,13 @@
 
 package model
 
-import "math/big"
-
 const TableNameSaving = "savings"
 
 // Saving mapped from table <savings>
 type Saving struct {
-	Number  int64     `gorm:"column:number;primaryKey" json:"number"`
-	Rate    float64   `gorm:"column:rate;not null" json:"rate"`
-	Balance big.Float `gorm:"column:balance;not null;default:0.00" json:"balance"`
+	Number  int64   `gorm:"column:number;primaryKey" json:"number"`
+	Rate    float64 `gorm:"column:rate;not null" json:"rate"`
+	Balance float64 `gorm:"column:balance;not null;default:0.00" json:"balance"`
 }
 
 // TableName Saving's table name

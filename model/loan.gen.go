@@ -4,18 +4,16 @@
 
 package model
 
-import "math/big"
-
 const TableNameLoan = "loan"
 
 // Loan mapped from table <loan>
 type Loan struct {
-	Number  int64     `gorm:"column:number;primaryKey" json:"number"`
-	Rate    big.Float `gorm:"column:rate;not null" json:"rate"`
-	Amount  big.Float `gorm:"column:amount;not null" json:"amount"`
-	Months  int32     `gorm:"column:months;not null" json:"months"`
-	Payment big.Float `gorm:"column:payment;not null" json:"payment"`
-	Type    string    `gorm:"column:type;not null" json:"type"`
+	Number  int64   `gorm:"column:number;primaryKey" json:"number"`
+	Rate    float64 `gorm:"column:rate;not null" json:"rate"`
+	Amount  float64 `gorm:"column:amount;not null" json:"amount"`
+	Months  int32   `gorm:"column:months;not null" json:"months"`
+	Payment float64 `gorm:"column:payment;not null" json:"payment"`
+	Type    string  `gorm:"column:type;not null" json:"type"`
 }
 
 // TableName Loan's table name

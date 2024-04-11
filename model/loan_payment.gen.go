@@ -5,7 +5,6 @@
 package model
 
 import (
-	"math/big"
 	"time"
 )
 
@@ -15,9 +14,8 @@ const TableNameLoanPayment = "loan_payment"
 type LoanPayment struct {
 	Number        int64     `gorm:"column:number;not null" json:"number"`
 	PaymentDate   time.Time `gorm:"column:payment_date;not null" json:"payment_date"`
-	PaymentAmount big.Float `gorm:"column:payment_amount;not null" json:"payment_amount"`
-	BalanceAfter  big.Float `gorm:"column:balance_after;not null" json:"balance_after"`
-	Status        string    `gorm:"column:status;not null" json:"status"`
+	PaymentAmount float64   `gorm:"column:payment_amount;not null" json:"payment_amount"`
+	BalanceAfter  float64   `gorm:"column:balance_after;not null" json:"balance_after"`
 }
 
 // TableName LoanPayment's table name
