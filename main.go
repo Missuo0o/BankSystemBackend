@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -70,7 +69,6 @@ func main() {
 	r.POST("/register", func(c *gin.Context) {
 		var registerRequest model.User
 		if err := c.ShouldBindJSON(&registerRequest); err != nil {
-			fmt.Println(err)
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -80,6 +78,7 @@ func main() {
 		registerRequest.Password = hashPassword(registerRequest.Password)
 		registerRequest.Role = "C"
 		result := db.Create(registerRequest)
+
 		if result.Error != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Username already exists",
@@ -188,6 +187,7 @@ func main() {
 			})
 
 		case "S":
+			saving.Rate = 1.50
 			db.Begin()
 			if err := db.Create(&account).Error; err != nil {
 				db.Rollback()
@@ -215,6 +215,7 @@ func main() {
 			//JOIN customer c ON a.id = c.id
 			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
 			var loanType string
+
 			db.Model(model.Loan{}).Select("type").
 				Joins("JOIN account a ON loan.number = a.number").
 				Joins("JOIN customer c ON a.id = c.id").
@@ -225,8 +226,12 @@ func main() {
 				})
 				return
 			}
+
+			loan.Rate = 5.00
+			loan.Payment = loan.Amount + (loan.Amount*loan.Rate*0.01*float64(loan.Months))/float64(loan.Months)
+
 			switch openAccountRequest.LoanType {
-			case "student":
+			case "STUDENT":
 				db.Begin()
 				if err := db.Create(&account).Error; err != nil {
 					db.Rollback()
@@ -253,7 +258,7 @@ func main() {
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Account opened successfully",
 				})
-			case "home":
+			case "HOME":
 				db.Begin()
 				if err := db.Create(&account).Error; err != nil {
 					db.Rollback()
@@ -280,7 +285,7 @@ func main() {
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Account opened successfully",
 				})
-			case "personal":
+			case "PERSONAL":
 				db.Begin()
 				if err := db.Create(&account).Error; err != nil {
 					db.Rollback()
@@ -326,13 +331,16 @@ func main() {
 			return
 		} else {
 			c.JSON(http.StatusOK, gin.H{
-				"message": "Reset password successful",
+				"message": "Password reset successful",
 			})
 		}
 	})
 
 	// Transfer API
 	r.POST("/transfer", func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
 		var transferRequest model.TransferHistory
 		err := c.ShouldBindJSON(&transferRequest)
 		if err != nil {
@@ -344,6 +352,14 @@ func main() {
 		// select type from account where number = transferRequest.FromAccount
 		var fromAccountType string
 		db.Model(model.Account{}).Select("type").Where("number = ?", transferRequest.FromAccountNumber).Find(&fromAccountType)
+		// select number from account where id = (select id from customer where username = username) and type = 'C' or type = 'S'
+		var fromAccountNumber string
+		db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username)).Where("type = 'C' OR type = 'S'").Find(&fromAccountNumber)
+		if fromAccountType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "FromAccount does not exist",
+			})
+		}
 		// select type from account where number = transferRequest.ToAccount
 		var toAccountType string
 		db.Model(model.Account{}).Select("type").Where("number = ?", transferRequest.ToAccountNumber).Find(&toAccountType)
@@ -385,6 +401,9 @@ func main() {
 					return
 				}
 				db.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Transfer successful",
+				})
 			case "S":
 				db.Begin()
 				// update checking set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
@@ -416,6 +435,9 @@ func main() {
 					return
 				}
 				db.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Transfer successful",
+				})
 			}
 		case "S":
 			switch toAccountType {
@@ -449,6 +471,9 @@ func main() {
 					return
 				}
 				db.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Transfer successful",
+				})
 			case "S":
 				db.Begin()
 				// update saving set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
@@ -479,8 +504,23 @@ func main() {
 					return
 				}
 				db.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Transfer successful",
+				})
 			}
 		}
+	})
+
+	// Get Transfer History API
+	r.GET("/transfer", func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+		var transferHistory []model.TransferHistory
+		// select * from transfer_history where from_account_number in (select number from account where type = 'C' or type = 'S' and id = (select id from customer where username = username))
+		db.Where("from_account_number in (?)", db.Model(model.Account{}).Select("number").Where("type = 'C' OR type = 'S' AND id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&transferHistory)
+		c.JSON(http.StatusOK, gin.H{
+			"data": transferHistory,
+		})
 	})
 
 	_ = r.Run(":8080")
