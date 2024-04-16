@@ -46,7 +46,7 @@
       keyword: document.getElementById('keyword').value,
     };
 
-    axios.put('/register', userData)
+    axios.post('/register', userData)
       .then(function (response) {
         alert(response.data.message);
         // Redirect to login page or somewhere else after successful registration
