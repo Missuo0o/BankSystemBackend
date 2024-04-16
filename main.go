@@ -633,6 +633,58 @@ func main() {
 		})
 	})
 
+	// Get UserInfo API
+	r.GET("/user", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+		// select * form customer where username = username
+		var customer model.Customer
+		db.Where("username = ?", username).First(&customer)
+		c.JSON(http.StatusOK, gin.H{
+			"data": customer,
+		})
+	})
+
+	// Update UserInfo API
+	r.PUT("/user", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
+		var updateRequest model.Customer
+		err := c.ShouldBindJSON(&updateRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+		// select id from customer where username = username
+		var id int64
+		db.Model(model.Customer{}).Select("id").Where("username = ?", username).Find(&id)
+
+		tx := db.Begin()
+		// update customer set fname = updateRequest.Fname, lname = updateRequest.Lname, state = updateRequest.State, city = updateRequest.City, zip = updateRequest.Zip, address = updateRequest.Address where username = username
+		if err := db.Model(model.Customer{}).Where("username = ?", username).Omit("username").Omit("id").Updates(&updateRequest).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		// update account set fname = updateRequest.Fname, lname = updateRequest.Lname, state = updateRequest.State, city = updateRequest.City, zip = updateRequest.Zip, address = updateRequest.Address where id = id
+		if err := db.Model(model.Account{}).Where("id = ?", id).Omit("id").Updates(&updateRequest).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		tx.Commit()
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Update successful",
+		})
+	})
+
 	_ = r.Run(":8080")
 
 }

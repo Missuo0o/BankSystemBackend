@@ -1,10 +1,11 @@
 package main
 
 import (
+	"gopkg.in/yaml.v3"
 	"log"
 	"os"
 
-	"gopkg.in/yaml.v3"
+	_ "gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
