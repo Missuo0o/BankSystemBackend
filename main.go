@@ -103,7 +103,7 @@ func main() {
 	})
 
 	// Open Account API
-	r.PUT("/open", func(c *gin.Context) {
+	r.PUT("/open", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
@@ -161,7 +161,6 @@ func main() {
 		homeLoan.Number = uniqueNumberString
 		account.ID = customer.ID
 		account.OpenDate = time.Now().Format("2006-01-02")
-		account.Status = false
 
 		switch requestType := openAccountRequest.Type; requestType {
 		case "C":
@@ -337,7 +336,7 @@ func main() {
 	})
 
 	// Transfer API
-	r.POST("/transfer", func(c *gin.Context) {
+	r.POST("/transfer", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
@@ -512,7 +511,7 @@ func main() {
 	})
 
 	// Get Transfer History API
-	r.GET("/transfer", func(c *gin.Context) {
+	r.GET("/transfer", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 		var transferHistory []model.TransferHistory
@@ -520,6 +519,98 @@ func main() {
 		db.Where("from_account_number in (?)", db.Model(model.Account{}).Select("number").Where("type = 'C' OR type = 'S' AND id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&transferHistory)
 		c.JSON(http.StatusOK, gin.H{
 			"data": transferHistory,
+		})
+	})
+
+	// Deposit API
+	r.POST("/deposit", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
+		var depositRequest Deposit
+
+		err := c.ShouldBindJSON(&depositRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		// 判断当前username是否有对应的账户
+		// select number from account where id in (select id from customer where username = username) and number =depositRequest.Account and (type = 'C' or type = 'S')
+		var accountNumber []int64
+		db.Model(model.Account{}).Select("number").Where("id in (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username)).Where("number = ? AND (type = 'C' OR type = 'S')", depositRequest.Account).Find(&accountNumber)
+
+		if len(accountNumber) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account does not exist1",
+			})
+			return
+		}
+
+		// select type from account where number = depositRequest.Account
+		var accountType string
+		db.Model(model.Account{}).Select("type").Where("number = ?", depositRequest.Account).Find(&accountType)
+		if accountType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account does not exist",
+			})
+			return
+		}
+		switch accountType {
+		case "C":
+			// update checking set balance = balance + balance where number = depositRequest.AccountNumber
+			if err := db.Model(model.Checking{}).Where("number = ?", depositRequest.Account).Update("balance", gorm.Expr("balance + ?", depositRequest.Balance)).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Account does not exist",
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Deposit successful",
+			})
+		case "S":
+			// update saving set balance = balance + balance where number = depositRequest.AccountNumber
+			if err := db.Model(model.Saving{}).Where("number = ?", depositRequest.Account).Update("balance", gorm.Expr("balance + ?", depositRequest.Balance)).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Account does not exist",
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Deposit successful",
+			})
+		}
+	})
+
+	// Get AccountNumber API
+	r.GET("/account", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+		var accountNumber []string
+		// select number from account where id = (select id from customer where username = username)
+		db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username)).Find(&accountNumber)
+		c.JSON(http.StatusOK, gin.H{
+			"data": accountNumber,
+		})
+	})
+
+	// Get AccountBalance API
+	r.GET("/balance", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+		var accountBalance []float64
+		// select balance from checking where number in (select number from account where id = (select id from customer where username = username) and type = 'C')
+		var checkingBalance float64
+		db.Model(model.Checking{}).Select("balance").Where("number in (?)", db.Model(model.Account{}).Select("number").Where("id = (?) AND type = 'C'", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&checkingBalance)
+		accountBalance = append(accountBalance, checkingBalance)
+		// select balance from saving where number in (select number from account where id = (select id from customer where username = username) and type = 'S')
+		var savingBalance float64
+		db.Model(model.Saving{}).Select("balance").Where("number in (?)", db.Model(model.Account{}).Select("number").Where("id = (?) AND type = 'S'", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&savingBalance)
+		accountBalance = append(accountBalance, savingBalance)
+		c.JSON(http.StatusOK, gin.H{
+			"data": accountBalance,
 		})
 	})
 

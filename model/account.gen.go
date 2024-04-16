@@ -22,7 +22,6 @@ type Account struct {
 	ID       int64  `gorm:"column:id;not null" json:"id"`
 	Address  string `gorm:"column:address;not null" json:"address"`
 	Type     string `gorm:"column:type;not null" json:"type"`
-	Status   bool   `gorm:"column:status;not null" json:"status"`
 }
 
 // TableName Account's table name

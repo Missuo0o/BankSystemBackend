@@ -10,7 +10,7 @@ type OpenAccountRequest struct {
 	Type                    string  `json:"type"`
 	Status                  bool    `json:"status"`
 	Amount                  float64 `json:"amount"`
-	Month                   int     `json:"month"`
+	Month                   int64   `json:"month"`
 	LoanType                string  `json:"loanType"`
 	HouseBuildYear          string  `json:"houseBuildYear"`
 	InsuranceAccNo          int64   `json:"insuranceAccNo"`
@@ -24,4 +24,9 @@ type OpenAccountRequest struct {
 	StudentID               string  `json:"studentID"`
 	EducationType           string  `json:"educationType"`
 	ExpectGradDate          string  `json:"expectGradDate"`
+}
+
+type Deposit struct {
+	Balance float64 `json:"balance"` // 金额
+	Account int64   `json:"account"` // 账户名或账户ID
 }
