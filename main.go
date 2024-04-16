@@ -36,10 +36,11 @@ func main() {
 
 		var user []model.User
 		// Check loginRequest.Username and loginRequest.Password
-		db.Where("username = ?", loginRequest.Username).First(&user)
+		// select * from user where username = loginRequest.Username
+		db.Model(model.User{}).Where("username = ?", loginRequest.Username).First(&user)
 		if len(user) == 0 {
 			c.JSON(http.StatusUnauthorized, gin.H{
-				"error": "Invalid username or password",
+				"error": "Invalid username or password1",
 			})
 			return
 		} else {
@@ -58,7 +59,7 @@ func main() {
 				})
 			} else {
 				c.JSON(http.StatusUnauthorized, gin.H{
-					"error": "Invalid username or password",
+					"error": "Invalid username or password2",
 				})
 				return
 			}
@@ -125,7 +126,7 @@ func main() {
 
 		if accountType != "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Account already exists",
+				"message": "Account already exists1",
 			})
 			return
 		}
@@ -149,6 +150,7 @@ func main() {
 		// if select id from customer where username = username is null, then insert into customer
 		db.Where("username = ?", username).First(&customer)
 		if customer.ID == 0 {
+			customer.Username = username.(string)
 			db.Create(&customer)
 		}
 
@@ -160,49 +162,49 @@ func main() {
 		studentLoan.Number = uniqueNumberString
 		homeLoan.Number = uniqueNumberString
 		account.ID = customer.ID
-		account.OpenDate = time.Now().Format("2006-01-02")
+		account.OpenDate = time.Now().Format("2006-01-02 15:04:05")
 
 		switch requestType := openAccountRequest.Type; requestType {
 		case "C":
 			checking.Charge = 10.00
-			db.Begin()
+			tx := db.Begin()
 			if err := db.Create(&account).Error; err != nil {
-				db.Rollback()
+				tx.Rollback()
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "Account already exists",
+					"message": err.Error(),
 				})
 				return
 			}
 			if err := db.Create(&checking).Error; err != nil {
-				db.Rollback()
+				tx.Rollback()
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "Account already exists",
+					"message": err.Error(),
 				})
 				return
 			}
-			db.Commit()
+			tx.Commit()
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Account opened successfully",
 			})
 
 		case "S":
 			saving.Rate = 1.50
-			db.Begin()
+			tx1 := db.Begin()
 			if err := db.Create(&account).Error; err != nil {
-				db.Rollback()
+				tx1.Rollback()
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "Account already exists",
+					"message": err.Error(),
 				})
 				return
 			}
 			if err := db.Create(&saving).Error; err != nil {
-				db.Rollback()
+				tx1.Rollback()
 				c.JSON(http.StatusBadRequest, gin.H{
-					"message": "Account already exists",
+					"message": err.Error(),
 				})
 				return
 			}
-			db.Commit()
+			tx1.Commit()
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Account opened successfully",
 			})
@@ -218,7 +220,7 @@ func main() {
 			db.Model(model.Loan{}).Select("type").
 				Joins("JOIN account a ON loan.number = a.number").
 				Joins("JOIN customer c ON a.id = c.id").
-				Where("loan.type = '?' AND c.username = ?", openAccountRequest.LoanType, username).Find(&loanType)
+				Where("loan.type = ? AND c.username = ?", openAccountRequest.LoanType, username).Find(&loanType)
 			if loanType != "" {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"message": "LoanAccount already exists",
@@ -227,80 +229,97 @@ func main() {
 			}
 
 			loan.Rate = 5.00
-			loan.Payment = loan.Amount + (loan.Amount*loan.Rate*0.01*float64(loan.Months))/float64(loan.Months)
+			interest := loan.Amount * loan.Rate * 0.01 * float64(loan.Months)
+			loan.Payment = (loan.Amount + interest) / float64(loan.Months)
 
 			switch openAccountRequest.LoanType {
 			case "STUDENT":
-				db.Begin()
+				loan.Type = "STUDENT"
+				tx2 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
 				if err := db.Create(&loan).Error; err != nil {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
+				// select * from university where name = openAccountRequest.UniversityName
+				var university model.University
+				db.Where("name = ?", openAccountRequest.UniversityName).First(&university)
+				if university.Id == 0 {
+					university.Name = openAccountRequest.UniversityName
+					if err := db.Create(&university).Error; err != nil {
+						tx2.Rollback()
+						c.JSON(http.StatusBadRequest, gin.H{
+							"message": err.Error(),
+						})
+					}
+				}
+				studentLoan.UniversityID = university.Id
 				if err := db.Create(&studentLoan).Error; err != nil {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
-				db.Commit()
+				tx2.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Account opened successfully",
 				})
 			case "HOME":
-				db.Begin()
+				loan.Type = "HOME"
+				tx3 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
 				if err := db.Create(&loan).Error; err != nil {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
 				if err := db.Create(&homeLoan).Error; err != nil {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
-				db.Commit()
+				tx3.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Account opened successfully",
 				})
 			case "PERSONAL":
-				db.Begin()
+				loan.Type = "PERSONAL"
+				tx4 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
-					db.Rollback()
+					tx4.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
 				if err := db.Create(&loan).Error; err != nil {
-					db.Rollback()
+					tx4.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
-						"message": "Account already exists",
+						"message": err.Error(),
 					})
 					return
 				}
-				db.Commit()
+				tx4.Commit()
 
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Account opened successfully",
@@ -371,11 +390,11 @@ func main() {
 		case "C":
 			switch toAccountType {
 			case "C":
-				db.Begin()
+				tx := db.Begin()
 				// update checking set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
 				result := db.Model(model.Checking{}).Where("number = ? AND balance >= ?", transferRequest.FromAccountNumber, transferRequest.Amount).Update("balance", gorm.Expr("balance - ?", transferRequest.Amount))
 				if result.RowsAffected == 0 {
-					db.Rollback()
+					tx.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Insufficient balance",
 					})
@@ -383,7 +402,7 @@ func main() {
 				}
 				// update checking set balance = balance + transferRequest.Amount where number = transferRequest.ToAccount
 				if err := db.Model(model.Checking{}).Where("number = ?", transferRequest.ToAccountNumber).Update("balance", gorm.Expr("balance + ?", transferRequest.Amount)).Error; err != nil {
-					db.Rollback()
+					tx.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "ToAccount does not exist",
 					})
@@ -393,22 +412,22 @@ func main() {
 				transferRequest.TransferDate = time.Now()
 				transferRequest.AccountType = "C"
 				if err := db.Create(&transferRequest).Error; err != nil {
-					db.Rollback()
+					tx.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Transfer failed",
 					})
 					return
 				}
-				db.Commit()
+				tx.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Transfer successful",
 				})
 			case "S":
-				db.Begin()
+				tx1 := db.Begin()
 				// update checking set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
 				result := db.Model(model.Checking{}).Where("number = ? AND balance >= ?", transferRequest.FromAccountNumber, transferRequest.Amount).Update("balance", gorm.Expr("balance - ?", transferRequest.Amount))
 				if result.RowsAffected == 0 {
-					db.Rollback()
+					tx1.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Insufficient balance",
 					})
@@ -416,7 +435,7 @@ func main() {
 				}
 				// update saving set balance = balance + transferRequest.Amount where number = transferRequest.ToAccount
 				if err := db.Model(model.Saving{}).Where("number = ?", transferRequest.ToAccountNumber).Update("balance", gorm.Expr("balance + ?", transferRequest.Amount)).Error; err != nil {
-					db.Rollback()
+					tx1.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "ToAccount does not exist",
 					})
@@ -427,13 +446,13 @@ func main() {
 				transferRequest.TransferDate = time.Now()
 				transferRequest.AccountType = "S"
 				if err := db.Create(&transferRequest).Error; err != nil {
-					db.Rollback()
+					tx1.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Transfer failed",
 					})
 					return
 				}
-				db.Commit()
+				tx1.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Transfer successful",
 				})
@@ -441,11 +460,11 @@ func main() {
 		case "S":
 			switch toAccountType {
 			case "C":
-				db.Begin()
+				tx2 := db.Begin()
 				// update saving set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
 				result := db.Model(model.Saving{}).Where("number = ? AND balance >= ?", transferRequest.FromAccountNumber, transferRequest.Amount).Update("balance", gorm.Expr("balance - ?", transferRequest.Amount))
 				if result.RowsAffected == 0 {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Insufficient balance",
 					})
@@ -453,7 +472,7 @@ func main() {
 				}
 				// update checking set balance = balance + transferRequest.Amount where number = transferRequest.ToAccount
 				if err := db.Model(model.Checking{}).Where("number = ?", transferRequest.ToAccountNumber).Update("balance", gorm.Expr("balance + ?", transferRequest.Amount)).Error; err != nil {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "ToAccount does not exist",
 					})
@@ -463,22 +482,22 @@ func main() {
 				transferRequest.TransferDate = time.Now()
 				transferRequest.AccountType = "C"
 				if err := db.Create(&transferRequest).Error; err != nil {
-					db.Rollback()
+					tx2.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Transfer failed",
 					})
 					return
 				}
-				db.Commit()
+				tx2.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Transfer successful",
 				})
 			case "S":
-				db.Begin()
+				tx3 := db.Begin()
 				// update saving set balance = balance - transferRequest.Amount where number = transferRequest.FromAccount and balance >= transferRequest.Amount
 				result := db.Model(model.Saving{}).Where("number = ? AND balance >= ?", transferRequest.FromAccountNumber, transferRequest.Amount).Update("balance", gorm.Expr("balance - ?", transferRequest.Amount))
 				if result.RowsAffected == 0 {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Insufficient balance",
 					})
@@ -486,7 +505,7 @@ func main() {
 				}
 				// update saving set balance = balance + transferRequest.Amount where number = transferRequest.ToAccount
 				if err := db.Model(model.Saving{}).Where("number = ?", transferRequest.ToAccountNumber).Update("balance", gorm.Expr("balance + ?", transferRequest.Amount)).Error; err != nil {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "ToAccount does not exist",
 					})
@@ -496,13 +515,13 @@ func main() {
 				transferRequest.TransferDate = time.Now()
 				transferRequest.AccountType = "S"
 				if err := db.Create(&transferRequest).Error; err != nil {
-					db.Rollback()
+					tx3.Rollback()
 					c.JSON(http.StatusBadRequest, gin.H{
 						"message": "Transfer failed",
 					})
 					return
 				}
-				db.Commit()
+				tx3.Commit()
 				c.JSON(http.StatusOK, gin.H{
 					"message": "Transfer successful",
 				})

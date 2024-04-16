@@ -10,7 +10,7 @@ type OpenAccountRequest struct {
 	Type                    string  `json:"type"`
 	Status                  bool    `json:"status"`
 	Amount                  float64 `json:"amount"`
-	Month                   int64   `json:"month"`
+	Months                  int32   `json:"months"`
 	LoanType                string  `json:"loanType"`
 	HouseBuildYear          string  `json:"houseBuildYear"`
 	InsuranceAccNo          int64   `json:"insuranceAccNo"`
