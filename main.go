@@ -8,6 +8,7 @@ import (
 	"github.com/jinzhu/copier"
 	"gorm.io/gorm"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -104,7 +105,7 @@ func main() {
 	})
 
 	// Open Account API
-	r.PUT("/open", RoleAuthMiddleware("C"), func(c *gin.Context) {
+	r.POST("/open", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
@@ -126,7 +127,7 @@ func main() {
 
 		if accountType != "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Account already exists1",
+				"message": "Account already exists",
 			})
 			return
 		}
@@ -371,9 +372,9 @@ func main() {
 		var fromAccountType string
 		db.Model(model.Account{}).Select("type").Where("number = ?", transferRequest.FromAccountNumber).Find(&fromAccountType)
 		// select number from account where id = (select id from customer where username = username) and type = 'C' or type = 'S'
-		var fromAccountNumber string
+		var fromAccountNumber int64
 		db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username)).Where("type = 'C' OR type = 'S'").Find(&fromAccountNumber)
-		if fromAccountType == "" {
+		if fromAccountType == "" || fromAccountNumber != transferRequest.FromAccountNumber {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "FromAccount does not exist",
 			})
@@ -381,9 +382,9 @@ func main() {
 		// select type from account where number = transferRequest.ToAccount
 		var toAccountType string
 		db.Model(model.Account{}).Select("type").Where("number = ?", transferRequest.ToAccountNumber).Find(&toAccountType)
-		if fromAccountType == "" || toAccountType == "" {
+		if toAccountType == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "FromAccount does not exist",
+				"message": "ToAccount does not exist",
 			})
 		}
 		switch fromAccountType {
@@ -563,7 +564,7 @@ func main() {
 
 		if len(accountNumber) == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Account does not exist1",
+				"message": "Account does not exist",
 			})
 			return
 		}
@@ -683,6 +684,137 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{
 			"message": "Update successful",
 		})
+	})
+
+	// Get LoanInfo API
+	r.GET("/loan", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
+		// select count(*) from loan_payment where number = (select number from account where id = (select id from customer where username = username))
+		var loanPaymentCount int64
+		db.Model(model.LoanPayment{}).Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Count(&loanPaymentCount)
+
+		// select months from loan where number = (select number from account where id = (select id from customer where username = username))
+		var months int64
+		db.Model(model.Loan{}).Select("months").Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&months)
+		if loanPaymentCount == months {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Loan already paid off",
+			})
+			return
+		}
+
+		// select * from loan where number in (select number from account where id = (select id from customer where username = username))
+		var loan []model.Loan
+		db.Model(model.Loan{}).Where("number in (?)", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&loan)
+		if len(loan) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Loan does not exist",
+			})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{
+			"data": loan,
+		})
+
+	})
+
+	// Pay Loan API
+	r.POST("/pay", RoleAuthMiddleware("C"), func(c *gin.Context) {
+		session := sessions.Default(c)
+		username := session.Get("username")
+
+		var accountNumber int64
+		err := c.ShouldBindJSON(&accountNumber)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		// select * from loan where number in (select number from account where id = (select id from customer where username = username))
+		var loan []model.Loan
+		db.Model(model.Loan{}).Where("number in (?)", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&loan)
+		if len(loan) == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Loan does not exist",
+			})
+			return
+		}
+
+		// select * from loan_payment where number = (select number from account where id = (select id from customer where username = username))
+		var loanPayment []model.LoanPayment
+		db.Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&loanPayment)
+
+		for _, payment := range loanPayment {
+			var currentMonth bool
+			currentMonth = strings.Contains(payment.PaymentDate, time.Now().Format("2006-01"))
+
+			if currentMonth {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Payment already made this month",
+				})
+				return
+			}
+		}
+
+		// select payment from loan where number in  (select number from account where id = (select id from customer where username = username))
+		var payment float64
+		db.Model(model.Loan{}).Select("payment").Where("number in (?)", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&payment)
+
+		// select type from account where number = accountNumber
+		var accountType string
+		db.Model(model.Account{}).Select("type").Where("number = ?", accountNumber).Find(&accountType)
+
+		// select number from account where id = (select id from customer where username = username) and type = 'C' or type = 'S'
+		var AccountNumber int64
+		db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username)).Where("type = 'C' OR type = 'S'").Find(&AccountNumber)
+		if accountType == "" || accountNumber != AccountNumber {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account does not exist",
+			})
+			return
+		}
+
+		var loanPaymentRecord model.LoanPayment
+		loanPaymentRecord.Number = loan[0].Number
+		loanPaymentRecord.PaymentDate = time.Now().Format("2006-01-02")
+		loanPaymentRecord.PaymentAmount = payment
+		switch accountType {
+		case "C":
+			// select balance from checking where number = accountNumber
+			var balance float64
+			db.Model(model.Checking{}).Select("balance").Where("number = ?", accountNumber).Find(&balance)
+			if balance < payment {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Insufficient balance",
+				})
+				return
+			}
+			// update checking set balance = balance - payment where number = accountNumber
+			db.Model(model.Checking{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment))
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Payment successful",
+			})
+		case "S":
+			// select balance from saving where number = accountNumber
+			var balance float64
+			db.Model(model.Saving{}).Select("balance").Where("number = ?", accountNumber).Find(&balance)
+			if balance < payment {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Insufficient balance",
+				})
+				return
+			}
+			// update saving set balance = balance - payment where number = accountNumber
+			db.Model(model.Saving{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment))
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Payment successful",
+			})
+		}
+
 	})
 
 	_ = r.Run(":8080")
