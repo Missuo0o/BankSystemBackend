@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -691,13 +692,15 @@ func main() {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
-		// select count(*) from loan_payment where number = (select number from account where id = (select id from customer where username = username))
 		var loanPaymentCount int64
-		db.Model(model.LoanPayment{}).Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Count(&loanPaymentCount)
 
+		// select count(*) from loan_payment where number = (select number from account where id = (select id from customer where username = username))
+		db.Raw("select count(*) from loan_payment where number = (select number from account where  type = 'L' and id = (select id from customer where username = ?))", username).Scan(&loanPaymentCount)
+		fmt.Println(loanPaymentCount)
 		// select months from loan where number = (select number from account where id = (select id from customer where username = username))
 		var months int64
-		db.Model(model.Loan{}).Select("months").Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&months)
+		db.Raw("select months from loan where number = (select number from account where  type = 'L' and id = (select id from customer where username = ?))", username).Scan(&months)
+		fmt.Println(months)
 		if loanPaymentCount == months {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Loan already paid off",
@@ -725,11 +728,14 @@ func main() {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
-		var accountNumber int64
-		err := c.ShouldBindJSON(&accountNumber)
+		var jsonMap map[string]interface{}
+
+		err := c.ShouldBindJSON(&jsonMap)
+		var accountNumber = int64(jsonMap["account"].(float64))
+
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Invalid request",
+				"message": err.Error(),
 			})
 			return
 		}
@@ -744,11 +750,11 @@ func main() {
 			return
 		}
 
-		// select * from loan_payment where number = (select number from account where id = (select id from customer where username = username))
+		// select * from loan_payment where number = (select number from account where type = 'L' and id = (select id from customer where username = username))
 		var loanPayment []model.LoanPayment
-		db.Where("number = ?", db.Model(model.Account{}).Select("number").Where("id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&loanPayment)
-
+		db.Model(model.LoanPayment{}).Where("number = (?)", db.Model(model.Account{}).Select("number").Where("type = 'L' AND id = (?)", db.Model(model.Customer{}).Select("id").Where("username = ?", username))).Find(&loanPayment)
 		for _, payment := range loanPayment {
+
 			var currentMonth bool
 			currentMonth = strings.Contains(payment.PaymentDate, time.Now().Format("2006-01"))
 
@@ -793,11 +799,24 @@ func main() {
 				})
 				return
 			}
+			tx := db.Begin()
 			// update checking set balance = balance - payment where number = accountNumber
-			db.Model(model.Checking{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment))
-			c.JSON(http.StatusOK, gin.H{
-				"message": "Payment successful",
-			})
+			if err := db.Model(model.Checking{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment)).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			// insert into loan_payment
+			if err := db.Create(&loanPaymentRecord).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			tx.Commit()
 		case "S":
 			// select balance from saving where number = accountNumber
 			var balance float64
@@ -808,8 +827,25 @@ func main() {
 				})
 				return
 			}
+			tx := db.Begin()
 			// update saving set balance = balance - payment where number = accountNumber
-			db.Model(model.Saving{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment))
+			if err := db.Model(model.Saving{}).Where("number = ?", accountNumber).Update("balance", gorm.Expr("balance - ?", payment)).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			// insert into loan_payment
+			if err := db.Create(&loanPaymentRecord).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			tx.Commit()
+
 			c.JSON(http.StatusOK, gin.H{
 				"message": "Payment successful",
 			})
