@@ -850,9 +850,276 @@ func main() {
 				"message": "Payment successful",
 			})
 		}
-
 	})
 
+	// Admin register API
+	r.POST("/admin/register", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var registerRequest model.User
+		if err := c.ShouldBindJSON(&registerRequest); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		registerRequest.Password = hashPassword(registerRequest.Password)
+		if registerRequest.Role != "A" && registerRequest.Role != "C" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid role",
+			})
+			return
+		}
+		result := db.Create(registerRequest)
+
+		if result.Error != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Username already exists",
+			})
+			return
+		} else {
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Register successful",
+			})
+		}
+	})
+
+	// Admin OpenAccount API
+	r.POST("/admin/open", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var openAccountRequest OpenAccountRequest
+		err := c.ShouldBindJSON(&openAccountRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		var username = openAccountRequest.Username
+
+		// select type from user where username = username
+		var role string
+		db.Model(model.User{}).Select("role").Where("username = ?", username).Find(&role)
+		if role != "C" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "User does not exist",
+			})
+			return
+		}
+
+		// select type from account where id = (select id from customer where username = username) and type = typeValue
+		var accountType string
+		db.Model(model.Account{}).Select("type").
+			Where("id = (?)", db.Model(model.Customer{}).
+				Select("id").Where("username = ?", username)).
+			Where("type = ?", openAccountRequest.Type).Find(&accountType)
+
+		if accountType != "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account already exists",
+			})
+			return
+		}
+
+		var customer model.Customer
+		var account model.Account
+		var checking model.Checking
+		var saving model.Saving
+		var loan model.Loan
+		var studentLoan model.StudentLoan
+		var homeLoan model.HomeLoan
+
+		_ = copier.Copy(&customer, &openAccountRequest)
+		_ = copier.Copy(&account, &openAccountRequest)
+		_ = copier.Copy(&checking, &openAccountRequest)
+		_ = copier.Copy(&saving, &openAccountRequest)
+		_ = copier.Copy(&loan, &openAccountRequest)
+		_ = copier.Copy(&studentLoan, &openAccountRequest)
+		_ = copier.Copy(&homeLoan, &openAccountRequest)
+
+		// if select id from customer where username = username is null, then insert into customer
+		db.Where("username = ?", username).First(&customer)
+		if customer.ID == 0 {
+			customer.Username = username
+			db.Create(&customer)
+		}
+
+		uniqueNumberString := generateUniqueRandomNumberString(db)
+		account.Number = uniqueNumberString
+		checking.Number = uniqueNumberString
+		saving.Number = uniqueNumberString
+		loan.Number = uniqueNumberString
+		studentLoan.Number = uniqueNumberString
+		homeLoan.Number = uniqueNumberString
+		account.ID = customer.ID
+		account.OpenDate = time.Now().Format("2006-01-02 15:04:05")
+
+		switch requestType := openAccountRequest.Type; requestType {
+		case "C":
+			checking.Charge = 10.00
+			tx := db.Begin()
+			if err := db.Create(&account).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			if err := db.Create(&checking).Error; err != nil {
+				tx.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			tx.Commit()
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Account opened successfully",
+			})
+
+		case "S":
+			saving.Rate = 1.50
+			tx1 := db.Begin()
+			if err := db.Create(&account).Error; err != nil {
+				tx1.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			if err := db.Create(&saving).Error; err != nil {
+				tx1.Rollback()
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			tx1.Commit()
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Account opened successfully",
+			})
+
+		case "L":
+			// SELECT l.type
+			//FROM loan l
+			//JOIN account a ON l.number = a.number
+			//JOIN customer c ON a.id = c.id
+			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
+			var loanType string
+
+			db.Model(model.Loan{}).Select("type").
+				Joins("JOIN account a ON loan.number = a.number").
+				Joins("JOIN customer c ON a.id = c.id").
+				Where("loan.type = ? AND c.username = ?", openAccountRequest.LoanType, username).Find(&loanType)
+			if loanType != "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "LoanAccount already exists",
+				})
+				return
+			}
+
+			loan.Rate = 5.00
+			interest := loan.Amount * loan.Rate * 0.01 * float64(loan.Months)
+			loan.Payment = (loan.Amount + interest) / float64(loan.Months)
+
+			switch openAccountRequest.LoanType {
+			case "STUDENT":
+				loan.Type = "STUDENT"
+				tx2 := db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					tx2.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					tx2.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				// select * from university where name = openAccountRequest.UniversityName
+				var university model.University
+				db.Where("name = ?", openAccountRequest.UniversityName).First(&university)
+				if university.Id == 0 {
+					university.Name = openAccountRequest.UniversityName
+					if err := db.Create(&university).Error; err != nil {
+						tx2.Rollback()
+						c.JSON(http.StatusBadRequest, gin.H{
+							"message": err.Error(),
+						})
+					}
+				}
+				studentLoan.UniversityID = university.Id
+				if err := db.Create(&studentLoan).Error; err != nil {
+					tx2.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				tx2.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Account opened successfully",
+				})
+			case "HOME":
+				loan.Type = "HOME"
+				tx3 := db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					tx3.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					tx3.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				if err := db.Create(&homeLoan).Error; err != nil {
+					tx3.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				tx3.Commit()
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Account opened successfully",
+				})
+			case "PERSONAL":
+				loan.Type = "PERSONAL"
+				tx4 := db.Begin()
+				if err := db.Create(&account).Error; err != nil {
+					tx4.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				if err := db.Create(&loan).Error; err != nil {
+					tx4.Rollback()
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": err.Error(),
+					})
+					return
+				}
+				tx4.Commit()
+
+				c.JSON(http.StatusOK, gin.H{
+					"message": "Account opened successfully",
+				})
+			}
+		}
+	})
+
+	// Admin UpdateUserInfo API
+
+	// Admin
 	_ = r.Run(":8080")
 
 }
