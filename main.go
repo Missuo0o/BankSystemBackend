@@ -1137,6 +1137,25 @@ func main() {
 		c.JSON(http.StatusOK, gin.H{"message": "Account successfully frozen"})
 	})
 
+	// unfreeze account API
+	r.POST("/unfreeze", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var request struct {
+			AccountNumber string
+		}
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request"})
+			return
+		}
+
+		result := db.Model(&model.Account{}).Where("number = ?", request.AccountNumber).Update("status", "NORMAL")
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to unfreeze account"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Account successfully unfrozen"})
+	})
+
 	// Admin UpdateUserInfo API
 
 	// Admin
