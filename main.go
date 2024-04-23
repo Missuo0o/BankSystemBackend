@@ -27,6 +27,12 @@ func main() {
 	// Login API
 	r.POST("/login", func(c *gin.Context) {
 		var loginRequest model.User
+		if loginRequest.Username == "" || loginRequest.Password == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 
 		err := c.ShouldBindJSON(&loginRequest)
 		if err != nil {
@@ -71,6 +77,12 @@ func main() {
 	// User Register API
 	r.POST("/register", func(c *gin.Context) {
 		var registerRequest model.User
+		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Keyword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		if err := c.ShouldBindJSON(&registerRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
@@ -152,6 +164,13 @@ func main() {
 		// if select id from customer where username = username is null, then insert into customer
 		db.Where("username = ?", username).First(&customer)
 		if customer.ID == 0 {
+			if customer.Fname == "" || customer.Lname == "" || customer.State == "" || customer.City == "" || customer.Zip == "" || customer.Address == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Invalid request",
+				})
+				return
+
+			}
 			customer.Username = username.(string)
 			db.Create(&customer)
 		}
@@ -165,6 +184,13 @@ func main() {
 		homeLoan.Number = uniqueNumberString
 		account.ID = customer.ID
 		account.OpenDate = time.Now().Format("2006-01-02 15:04:05")
+
+		if account.Fname == "" || account.Lname == "" || account.State == "" || account.City == "" || account.Zip == "" || account.Address == "" || (account.Type != "C" && account.Type != "S" && account.Type != "L") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 
 		switch requestType := openAccountRequest.Type; requestType {
 		case "C":
@@ -212,6 +238,12 @@ func main() {
 			})
 
 		case "L":
+			if (loan.Type != "STUDENT" && loan.Type != "HOME" && loan.Type != "PERSONAL") || loan.Amount <= 0 || loan.Months <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Invalid request",
+				})
+				return
+			}
 			// SELECT l.type
 			//FROM loan l
 			//JOIN account a ON l.number = a.number
@@ -235,6 +267,13 @@ func main() {
 
 			switch openAccountRequest.LoanType {
 			case "STUDENT":
+				if openAccountRequest.UniversityName == "" || studentLoan.StudentID == "" || studentLoan.EducationType == "" || studentLoan.ExpectGradDate == "" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": "Invalid request",
+					})
+					return
+
+				}
 				loan.Type = "STUDENT"
 				tx2 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
@@ -261,6 +300,7 @@ func main() {
 						c.JSON(http.StatusBadRequest, gin.H{
 							"message": err.Error(),
 						})
+						return
 					}
 				}
 				studentLoan.UniversityID = university.Id
@@ -276,6 +316,12 @@ func main() {
 					"message": "Account opened successfully",
 				})
 			case "HOME":
+				if homeLoan.HouseBuiltYear == "" || homeLoan.InsuranceAccNo == 0 || homeLoan.InsuranceCompanyName == "" || homeLoan.InsuranceCompanyState == "" || homeLoan.InsuranceCompanyCity == "" || homeLoan.InsuranceCompanyZip == "" || homeLoan.InsuranceCompanyAddress == "" || homeLoan.InsuranceCompanyPremium == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": "Invalid request",
+					})
+					return
+				}
 				loan.Type = "HOME"
 				tx3 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
@@ -332,6 +378,12 @@ func main() {
 	// Reset Password API
 	r.PUT("/reset", func(c *gin.Context) {
 		var resetRequest model.User
+		if resetRequest.Username == "" || resetRequest.Password == "" || resetRequest.Keyword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		err := c.ShouldBindJSON(&resetRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -361,6 +413,12 @@ func main() {
 		username := session.Get("username")
 
 		var transferRequest model.TransferHistory
+		if transferRequest.FromAccountNumber == 0 || transferRequest.ToAccountNumber == 0 || transferRequest.Amount == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		err := c.ShouldBindJSON(&transferRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -548,6 +606,12 @@ func main() {
 		username := session.Get("username")
 
 		var depositRequest Deposit
+		if depositRequest.Account == 0 || depositRequest.Balance == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 
 		err := c.ShouldBindJSON(&depositRequest)
 		if err != nil {
@@ -652,6 +716,12 @@ func main() {
 		username := session.Get("username")
 
 		var updateRequest model.Customer
+		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		err := c.ShouldBindJSON(&updateRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -731,6 +801,12 @@ func main() {
 
 		err := c.ShouldBindJSON(&jsonMap)
 		var accountNumber = int64(jsonMap["account"].(float64))
+		if accountNumber == 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -854,6 +930,12 @@ func main() {
 	// Admin register API
 	r.POST("/admin/register", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		var registerRequest model.User
+		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Role == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		if err := c.ShouldBindJSON(&registerRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
@@ -885,6 +967,12 @@ func main() {
 	// Admin OpenAccount API
 	r.POST("/admin/open", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		var openAccountRequest OpenAccountRequest
+		if openAccountRequest.Username == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		err := c.ShouldBindJSON(&openAccountRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -892,18 +980,7 @@ func main() {
 			})
 			return
 		}
-
 		var username = openAccountRequest.Username
-
-		// select type from user where username = username
-		var role string
-		db.Model(model.User{}).Select("role").Where("username = ?", username).Find(&role)
-		if role != "C" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "User does not exist",
-			})
-			return
-		}
 
 		// select type from account where id = (select id from customer where username = username) and type = typeValue
 		var accountType string
@@ -938,6 +1015,13 @@ func main() {
 		// if select id from customer where username = username is null, then insert into customer
 		db.Where("username = ?", username).First(&customer)
 		if customer.ID == 0 {
+			if customer.Fname == "" || customer.Lname == "" || customer.State == "" || customer.City == "" || customer.Zip == "" || customer.Address == "" {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Invalid request",
+				})
+				return
+
+			}
 			customer.Username = username
 			db.Create(&customer)
 		}
@@ -951,6 +1035,13 @@ func main() {
 		homeLoan.Number = uniqueNumberString
 		account.ID = customer.ID
 		account.OpenDate = time.Now().Format("2006-01-02 15:04:05")
+
+		if account.Fname == "" || account.Lname == "" || account.State == "" || account.City == "" || account.Zip == "" || account.Address == "" || (account.Type != "C" && account.Type != "S" && account.Type != "L") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 
 		switch requestType := openAccountRequest.Type; requestType {
 		case "C":
@@ -998,13 +1089,18 @@ func main() {
 			})
 
 		case "L":
+			if (loan.Type != "STUDENT" && loan.Type != "HOME" && loan.Type != "PERSONAL") || loan.Amount <= 0 || loan.Months <= 0 {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": "Invalid request",
+				})
+				return
+			}
 			// SELECT l.type
 			//FROM loan l
 			//JOIN account a ON l.number = a.number
 			//JOIN customer c ON a.id = c.id
 			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
 			var loanType string
-
 			db.Model(model.Loan{}).Select("type").
 				Joins("JOIN account a ON loan.number = a.number").
 				Joins("JOIN customer c ON a.id = c.id").
@@ -1022,6 +1118,13 @@ func main() {
 
 			switch openAccountRequest.LoanType {
 			case "STUDENT":
+				if openAccountRequest.UniversityName == "" || studentLoan.StudentID == "" || studentLoan.EducationType == "" || studentLoan.ExpectGradDate == "" {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": "Invalid request",
+					})
+					return
+
+				}
 				loan.Type = "STUDENT"
 				tx2 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
@@ -1048,6 +1151,7 @@ func main() {
 						c.JSON(http.StatusBadRequest, gin.H{
 							"message": err.Error(),
 						})
+						return
 					}
 				}
 				studentLoan.UniversityID = university.Id
@@ -1063,6 +1167,12 @@ func main() {
 					"message": "Account opened successfully",
 				})
 			case "HOME":
+				if homeLoan.HouseBuiltYear == "" || homeLoan.InsuranceAccNo == 0 || homeLoan.InsuranceCompanyName == "" || homeLoan.InsuranceCompanyState == "" || homeLoan.InsuranceCompanyCity == "" || homeLoan.InsuranceCompanyZip == "" || homeLoan.InsuranceCompanyAddress == "" || homeLoan.InsuranceCompanyPremium == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"message": "Invalid request",
+					})
+					return
+				}
 				loan.Type = "HOME"
 				tx3 := db.Begin()
 				if err := db.Create(&account).Error; err != nil {
@@ -1114,9 +1224,10 @@ func main() {
 				})
 			}
 		}
+
 	})
 
-	// Admin GetUserInfo APi
+	//Admin GetUserInfo APi
 	r.GET("/admin/user", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		// select * from customer
 		var customer []model.Customer
@@ -1129,6 +1240,7 @@ func main() {
 	// Admin GetUserInfoByUsername API
 	r.GET("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		username := c.Param("username")
+		fmt.Println("test")
 		// select * from customer where username = username
 		var customer model.Customer
 		db.Where("username = ?", username).First(&customer)
@@ -1141,6 +1253,12 @@ func main() {
 	r.PUT("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		username := c.Param("username")
 		var updateRequest model.Customer
+		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		err := c.ShouldBindJSON(&updateRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -1174,6 +1292,8 @@ func main() {
 			"message": "Update successful",
 		})
 	})
+
+	// Admin GetAccountByType API
 
 	_ = r.Run(":8080")
 
