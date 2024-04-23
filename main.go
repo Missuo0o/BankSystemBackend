@@ -2,15 +2,16 @@ package main
 
 import (
 	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
 	"github.com/Missuo0o/goBank/model"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	"github.com/jinzhu/copier"
 	"gorm.io/gorm"
-	"net/http"
-	"strings"
-	"time"
 )
 
 func main() {
@@ -1115,6 +1116,25 @@ func main() {
 				})
 			}
 		}
+	})
+
+	// freeze account API
+	r.POST("/freeze", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var request struct {
+			AccountNumber string
+		}
+		if err := c.ShouldBindJSON(&request); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"message": "Invalid request"})
+			return
+		}
+
+		result := db.Model(&model.Account{}).Where("number = ?", request.AccountNumber).Update("status", "FROZEN")
+		if result.Error != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to freeze account"})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"message": "Account successfully frozen"})
 	})
 
 	// Admin UpdateUserInfo API
