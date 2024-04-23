@@ -218,7 +218,6 @@ func main() {
 			//JOIN customer c ON a.id = c.id
 			//WHERE l.type = 'STUDENT' AND c.username = 'vincent';
 			var loanType string
-
 			db.Model(model.Loan{}).Select("type").
 				Joins("JOIN account a ON loan.number = a.number").
 				Joins("JOIN customer c ON a.id = c.id").
@@ -331,7 +330,7 @@ func main() {
 	})
 
 	// Reset Password API
-	r.POST("/reset", func(c *gin.Context) {
+	r.PUT("/reset", func(c *gin.Context) {
 		var resetRequest model.User
 		err := c.ShouldBindJSON(&resetRequest)
 		if err != nil {
@@ -357,7 +356,7 @@ func main() {
 	})
 
 	// Transfer API
-	r.POST("/transfer", RoleAuthMiddleware("C"), func(c *gin.Context) {
+	r.PUT("/transfer", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
@@ -544,7 +543,7 @@ func main() {
 	})
 
 	// Deposit API
-	r.POST("/deposit", RoleAuthMiddleware("C"), func(c *gin.Context) {
+	r.PUT("/deposit", RoleAuthMiddleware("C"), func(c *gin.Context) {
 		session := sessions.Default(c)
 		username := session.Get("username")
 
@@ -1117,9 +1116,65 @@ func main() {
 		}
 	})
 
-	// Admin UpdateUserInfo API
+	// Admin GetUserInfo APi
+	r.GET("/admin/user", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		// select * from customer
+		var customer []model.Customer
+		db.Find(&customer)
+		c.JSON(http.StatusOK, gin.H{
+			"data": customer,
+		})
+	})
 
-	// Admin
+	// Admin GetUserInfoByUsername API
+	r.GET("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		username := c.Param("username")
+		// select * from customer where username = username
+		var customer model.Customer
+		db.Where("username = ?", username).First(&customer)
+		c.JSON(http.StatusOK, gin.H{
+			"data": customer,
+		})
+	})
+
+	// Admin UpdateUserInfo API
+	r.PUT("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		username := c.Param("username")
+		var updateRequest model.Customer
+		err := c.ShouldBindJSON(&updateRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+		// select id from customer where username = username
+		var id int64
+		db.Model(model.Customer{}).Select("id").Where("username = ?", username).Find(&id)
+
+		tx := db.Begin()
+		// update customer set fname = updateRequest.Fname, lname = updateRequest.Lname, state = updateRequest.State, city = updateRequest.City, zip = updateRequest.Zip, address = updateRequest.Address where username = username
+		if err := db.Model(model.Customer{}).Where("username = ?", username).Omit("username").Omit("id").Updates(&updateRequest).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		// update account set fname = updateRequest.Fname, lname = updateRequest.Lname, state = updateRequest.State, city = updateRequest.City, zip = updateRequest.Zip, address = updateRequest.Address where id = id
+		if err := db.Model(model.Account{}).Where("id = ?", id).Omit("id").Updates(&updateRequest).Error; err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": err.Error(),
+			})
+			return
+		}
+		tx.Commit()
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Update successful",
+		})
+	})
+
 	_ = r.Run(":8080")
 
 }
