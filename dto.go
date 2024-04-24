@@ -2,8 +2,8 @@ package main
 
 type OpenAccountRequest struct {
 	Username                string  `json:"username"`
-	FName                   string  `json:"fName"`
-	LName                   string  `json:"lName"`
+	Fname                   string  `json:"fname"`
+	Lname                   string  `json:"lname"`
 	State                   string  `json:"state"`
 	City                    string  `json:"city"`
 	Zip                     string  `json:"zip"`

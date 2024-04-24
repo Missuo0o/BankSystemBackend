@@ -27,17 +27,18 @@ func main() {
 	// Login API
 	r.POST("/login", func(c *gin.Context) {
 		var loginRequest model.User
-		if loginRequest.Username == "" || loginRequest.Password == "" {
+
+		err := c.ShouldBindJSON(&loginRequest)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
 
-		err := c.ShouldBindJSON(&loginRequest)
-		if err != nil {
+		if loginRequest.Username == "" || loginRequest.Password == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Invalid request",
+				"message": "Invalid r1equest",
 			})
 			return
 		}
@@ -77,13 +78,15 @@ func main() {
 	// User Register API
 	r.POST("/register", func(c *gin.Context) {
 		var registerRequest model.User
-		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Keyword == "" {
+
+		if err := c.ShouldBindJSON(&registerRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		if err := c.ShouldBindJSON(&registerRequest); err != nil {
+
+		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Keyword == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -293,7 +296,7 @@ func main() {
 				// select * from university where name = openAccountRequest.UniversityName
 				var university model.University
 				db.Where("name = ?", openAccountRequest.UniversityName).First(&university)
-				if university.Id == 0 {
+				if university.Id != 0 {
 					university.Name = openAccountRequest.UniversityName
 					if err := db.Create(&university).Error; err != nil {
 						tx2.Rollback()
@@ -378,12 +381,7 @@ func main() {
 	// Reset Password API
 	r.PUT("/reset", func(c *gin.Context) {
 		var resetRequest model.User
-		if resetRequest.Username == "" || resetRequest.Password == "" || resetRequest.Keyword == "" {
-			c.JSON(http.StatusBadRequest, gin.H{
-				"message": "Invalid request",
-			})
-			return
-		}
+
 		err := c.ShouldBindJSON(&resetRequest)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
@@ -392,6 +390,12 @@ func main() {
 			return
 		}
 
+		if resetRequest.Username == "" || resetRequest.Password == "" || resetRequest.Keyword == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
 		// update user set password = hashPassword(resetRequest.Password) where username = resetRequest.Username and keyword = resetRequest.Keyword
 		result := db.Model(&model.User{}).Where("username = ? AND keyword = ?", resetRequest.Username, resetRequest.Keyword).Update("password", hashPassword(resetRequest.Password))
 
@@ -413,14 +417,15 @@ func main() {
 		username := session.Get("username")
 
 		var transferRequest model.TransferHistory
-		if transferRequest.FromAccountNumber == 0 || transferRequest.ToAccountNumber == 0 || transferRequest.Amount == 0 {
+
+		err := c.ShouldBindJSON(&transferRequest)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		err := c.ShouldBindJSON(&transferRequest)
-		if err != nil {
+		if transferRequest.FromAccountNumber == 0 || transferRequest.ToAccountNumber == 0 || transferRequest.Amount == 0 {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -716,14 +721,15 @@ func main() {
 		username := session.Get("username")
 
 		var updateRequest model.Customer
-		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
+
+		err := c.ShouldBindJSON(&updateRequest)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		err := c.ShouldBindJSON(&updateRequest)
-		if err != nil {
+		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -930,13 +936,15 @@ func main() {
 	// Admin register API
 	r.POST("/admin/register", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		var registerRequest model.User
-		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Role == "" {
+
+		if err := c.ShouldBindJSON(&registerRequest); err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		if err := c.ShouldBindJSON(&registerRequest); err != nil {
+
+		if registerRequest.Username == "" || registerRequest.Password == "" || registerRequest.Role == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -967,14 +975,16 @@ func main() {
 	// Admin OpenAccount API
 	r.POST("/admin/open", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		var openAccountRequest OpenAccountRequest
-		if openAccountRequest.Username == "" {
+
+		err := c.ShouldBindJSON(&openAccountRequest)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		err := c.ShouldBindJSON(&openAccountRequest)
-		if err != nil {
+
+		if openAccountRequest.Username == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -1144,7 +1154,7 @@ func main() {
 				// select * from university where name = openAccountRequest.UniversityName
 				var university model.University
 				db.Where("name = ?", openAccountRequest.UniversityName).First(&university)
-				if university.Id == 0 {
+				if university.Id != 0 {
 					university.Name = openAccountRequest.UniversityName
 					if err := db.Create(&university).Error; err != nil {
 						tx2.Rollback()
@@ -1227,7 +1237,7 @@ func main() {
 
 	})
 
-	//Admin GetUserInfo APi
+	// Admin GetUserInfo APi
 	r.GET("/admin/user", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		// select * from customer
 		var customer []model.Customer
@@ -1237,10 +1247,19 @@ func main() {
 		})
 	})
 
+	// Admin Delete User API
+	r.DELETE("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		username := c.Param("username")
+		// delete from user where username = username
+		db.Where("username = ?", username).Delete(&model.User{})
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Delete successful",
+		})
+	})
+
 	// Admin GetUserInfoByUsername API
 	r.GET("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		username := c.Param("username")
-		fmt.Println("test")
 		// select * from customer where username = username
 		var customer model.Customer
 		db.Where("username = ?", username).First(&customer)
@@ -1253,14 +1272,16 @@ func main() {
 	r.PUT("/admin/user/:username", RoleAuthMiddleware("A"), func(c *gin.Context) {
 		username := c.Param("username")
 		var updateRequest model.Customer
-		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
+
+		err := c.ShouldBindJSON(&updateRequest)
+		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
 			return
 		}
-		err := c.ShouldBindJSON(&updateRequest)
-		if err != nil {
+
+		if updateRequest.Fname == "" || updateRequest.Lname == "" || updateRequest.State == "" || updateRequest.City == "" || updateRequest.Zip == "" || updateRequest.Address == "" {
 			c.JSON(http.StatusBadRequest, gin.H{
 				"message": "Invalid request",
 			})
@@ -1294,6 +1315,69 @@ func main() {
 	})
 
 	// Admin GetAccountByType API
+	r.GET("/admin/account", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var accountType string
+		accountType = c.Query("type")
+		if accountType != "S" && accountType != "C" && accountType != "L" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+		switch accountType {
+		case "C":
+			var checkingAccount []CheckingAccount
+			// select account.*,checking.* from account,checking where type = 'C' and account.number = checking.number
+			db.Raw("select account.*,checking.* from account,checking where type = 'C' and account.number = checking.number").Scan(&checkingAccount)
+			for i := range checkingAccount {
+				date, _ := time.Parse(time.RFC3339, checkingAccount[i].OpenDate)
+				checkingAccount[i].OpenDate = date.Format("2006-01-02 15:04:05")
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"data": checkingAccount,
+			})
+		case "S":
+			var savingAccount []SavingAccount
+			// select account.*,saving.* from account,saving where type = 'S' and account.number = saving.number
+			db.Raw("select account.*,savings.* from account,savings where type = 'S' and account.number = savings.number").Scan(&savingAccount)
+			for i := range savingAccount {
+				date, _ := time.Parse(time.RFC3339, savingAccount[i].OpenDate)
+				savingAccount[i].OpenDate = date.Format("2006-01-02 15:04:05")
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"data": savingAccount,
+			})
+		case "L":
+			var studentLoan []StudentLoanAccount
+			var homeLoan []HomeLoanAccount
+			var personalLoan []PersonalLoanAccount
+			//  select account.*,loan.*,student_loan.*,university.name as university_name from account,loan,student_loan,university
+			//                                                       where account.number = loan.number
+			//                                                         and loan.number = student_loan.number and student_loan.university_id = university.id
+			db.Raw("select account.*,loan.*,student_loan.*,university.name as university_name from account,loan,student_loan,university where account.number = loan.number and loan.number = student_loan.number and student_loan.university_id = university.id").Scan(&studentLoan)
+			db.Raw("select account.*,loan.*,home_loan.* from account,loan,home_loan where account.number = loan.number and loan.number = home_loan.number").Scan(&homeLoan)
+			db.Raw("select account.*,loan.* from account,loan where loan.type ='PERSONAL' and account.number = loan.number").Scan(&personalLoan)
+			for i := range studentLoan {
+				date, _ := time.Parse(time.RFC3339, studentLoan[i].OpenDate)
+				studentLoan[i].OpenDate = date.Format("2006-01-02 15:04:05")
+			}
+			for i := range homeLoan {
+				date, _ := time.Parse(time.RFC3339, homeLoan[i].OpenDate)
+				homeLoan[i].OpenDate = date.Format("2006-01-02 15:04:05")
+			}
+			for i := range personalLoan {
+				date, _ := time.Parse(time.RFC3339, personalLoan[i].OpenDate)
+				personalLoan[i].OpenDate = date.Format("2006-01-02 15:04:05")
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"data": gin.H{
+					"studentLoan":  studentLoan,
+					"homeLoan":     homeLoan,
+					"personalLoan": personalLoan,
+				},
+			})
+		}
+	})
 
 	_ = r.Run(":8080")
 
