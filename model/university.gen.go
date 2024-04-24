@@ -8,7 +8,7 @@ const TableNameUniversity = "university"
 
 // StudentLoan mapped from table <student_loan>
 type University struct {
-	Id   int64  `gorm:"column:number;primaryKey" json:"id"`
+	Id   int64  `gorm:"column:id;primaryKey" json:"id"`
 	Name string `gorm:"Name;not null" json:"name"`
 }
 
