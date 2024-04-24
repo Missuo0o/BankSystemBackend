@@ -1443,6 +1443,62 @@ func main() {
 		})
 	})
 
+	// Admin Update Account Balance APi
+	r.PUT("/admin/balance", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		var updateRequest Deposit
+
+		err := c.ShouldBindJSON(&updateRequest)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		if updateRequest.Balance <= 0 {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Invalid request",
+			})
+			return
+		}
+
+		// select type from account where number = number
+		var accountType string
+		db.Model(model.Account{}).Select("type").Where("number = ?", updateRequest.Account).Find(&accountType)
+		if accountType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account does not exist",
+			})
+			return
+		}
+
+		switch accountType {
+		case "C":
+			// update checking set balance = updateRequest.Balance where number = number
+			if err := db.Model(model.Checking{}).Where("number = ?", updateRequest.Account).Update("balance", updateRequest.Balance).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Update successful",
+			})
+		case "S":
+			// update saving set balance = updateRequest.Balance where number = number
+			if err := db.Model(model.Saving{}).Where("number = ?", updateRequest.Account).Update("balance", updateRequest.Balance).Error; err != nil {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"message": err.Error(),
+				})
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{
+				"message": "Update successful",
+			})
+		}
+
+	})
+
 	_ = r.Run(":8080")
 
 }
