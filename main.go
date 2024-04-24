@@ -1379,6 +1379,73 @@ func main() {
 		}
 	})
 
+	// Admin GetAccountByNumber API
+	r.GET("/admin/account/:number", RoleAuthMiddleware("A"), func(c *gin.Context) {
+		number := c.Param("number")
+		// select type from account where number = number
+		var accountType string
+		db.Model(model.Account{}).Select("type").Where("number = ?", number).Find(&accountType)
+		if accountType == "" {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"message": "Account does not exist",
+			})
+			return
+		}
+		switch accountType {
+		case "C":
+			var checkingAccount CheckingAccount
+			//SELECT account.*, checking.*
+			//FROM account
+			//JOIN checking ON account.number = checking.number
+			//WHERE account.type = 'C' AND account.number = 1234567809;
+			db.Raw("select account.*,checking.* from account,checking where type = 'C' and account.number = checking.number and account.number = ?", number).Scan(&checkingAccount)
+			date, _ := time.Parse(time.RFC3339, checkingAccount.OpenDate)
+			checkingAccount.OpenDate = date.Format("2006-01-02 15:04:05")
+
+			c.JSON(http.StatusOK, gin.H{
+				"data": checkingAccount,
+			})
+		case "S":
+			var savingAccount SavingAccount
+			//SELECT account.*, savings.*
+			//FROM account
+			//JOIN savings ON account.number = savings.number
+			//WHERE account.type = 'C' AND savings.number = 1234567809;
+			db.Raw("select account.*,savings.* from account,savings where type = 'S' and account.number = savings.number and account.number = ?", number).Scan(&savingAccount)
+			date, _ := time.Parse(time.RFC3339, savingAccount.OpenDate)
+			savingAccount.OpenDate = date.Format("2006-01-02 15:04:05")
+
+			c.JSON(http.StatusOK, gin.H{
+				"data": savingAccount,
+			})
+		case "L":
+			var studentLoan StudentLoanAccount
+			var homeLoan HomeLoanAccount
+			var personalLoan PersonalLoanAccount
+			//  select account.*,loan.*,student_loan.*,university.name as university_name from account,loan,student_loan,university
+			//                                                       where account.number = loan.number
+			//                                                         and loan.number = student_loan.number and student_loan.university_id = university.id and account.number = 1234567809
+			db.Raw("select account.*,loan.*,student_loan.*,university.name as university_name from account,loan,student_loan,university where account.number = loan.number and loan.number = student_loan.number and student_loan.university_id = university.id and account.number = ?", number).Scan(&studentLoan)
+			db.Raw("select account.*,loan.*,home_loan.* from account,loan,home_loan where account.number = loan.number and loan.number = home_loan.number and account.number = ?", number).Scan(&homeLoan)
+			db.Raw("select account.*,loan.* from account,loan where loan.type ='PERSONAL' and account.number = loan.number and account.number = ?", number).Scan(&personalLoan)
+			date, _ := time.Parse(time.RFC3339, studentLoan.OpenDate)
+			studentLoan.OpenDate = date.Format("2006-01-02 15:04:05")
+			date1, _ := time.Parse(time.RFC3339, homeLoan.OpenDate)
+			homeLoan.OpenDate = date1.Format("2006-01-02 15:04:05")
+			date2, _ := time.Parse(time.RFC3339, personalLoan.OpenDate)
+			personalLoan.OpenDate = date2.Format("2006-01-02 15:04:05")
+
+			c.JSON(http.StatusOK, gin.H{
+				"data": gin.H{
+					"studentLoan":  studentLoan,
+					"homeLoan":     homeLoan,
+					"personalLoan": personalLoan,
+				},
+			})
+		}
+
+	})
+
 	_ = r.Run(":8080")
 
 }
