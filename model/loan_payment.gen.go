@@ -8,6 +8,7 @@ const TableNameLoanPayment = "loan_payment"
 
 // LoanPayment mapped from table <loan_payment>
 type LoanPayment struct {
+	Id            int64   `gorm:"column:id;primaryKey;auto_increment" json:"id"`
 	Number        int64   `gorm:"column:number;not null" json:"number"`
 	PaymentDate   string  `gorm:"column:payment_date;not null" json:"payment_date"`
 	PaymentAmount float64 `gorm:"column:payment_amount;not null" json:"payment_amount"`

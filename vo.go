@@ -85,3 +85,16 @@ type PersonalLoanAccount struct {
 	Months   int32   `json:"months"`
 	Payment  float64 `json:"payment"`
 }
+
+type NumberType struct {
+	Number int64  `json:"number"`
+	Type   string `json:"type"`
+}
+
+type LoanSummary struct {
+	Number          string  `json:"number"`           // 贷款编号
+	Type            string  `json:"type"`             // 贷款类型
+	OriginalAmount  float64 `json:"original_amount"`  // 原始金额
+	RemainingAmount float64 `json:"remaining_amount"` // 剩余金额
+	RemainingMonths int     `json:"remaining_months"` // 剩余月数
+}

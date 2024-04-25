@@ -4,21 +4,17 @@
 
 package model
 
-import (
-	"time"
-)
-
 const TableNameTransferHistory = "transfer_history"
 
 // TransferHistory mapped from table <transfer_history>
 type TransferHistory struct {
-	ID                int64     `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
-	FromAccountNumber int64     `gorm:"column:from_account_number;not null" json:"from_account_number"`
-	ToAccountNumber   int64     `gorm:"column:to_account_number;not null" json:"to_account_number"`
-	Amount            float64   `gorm:"column:amount;not null" json:"amount"`
-	TransferDate      time.Time `gorm:"column:transfer_date;not null" json:"transfer_date"`
-	AccountType       string    `gorm:"column:account_type;not null" json:"account_type"`
-	Reason            string    `gorm:"column:reason" json:"reason"`
+	ID                int64   `gorm:"column:id;primaryKey;autoIncrement:true" json:"id"`
+	FromAccountNumber int64   `gorm:"column:from_account_number;not null" json:"from_account_number"`
+	ToAccountNumber   int64   `gorm:"column:to_account_number;not null" json:"to_account_number"`
+	Amount            float64 `gorm:"column:amount;not null" json:"amount"`
+	TransferDate      string  `gorm:"column:transfer_date;not null" json:"transfer_date"`
+	AccountType       string  `gorm:"column:account_type;not null" json:"account_type"`
+	Reason            string  `gorm:"column:reason" json:"reason"`
 }
 
 // TableName TransferHistory's table name
