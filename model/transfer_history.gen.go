@@ -14,7 +14,6 @@ type TransferHistory struct {
 	Amount            float64 `gorm:"column:amount;not null" json:"amount"`
 	TransferDate      string  `gorm:"column:transfer_date;not null" json:"transfer_date"`
 	AccountType       string  `gorm:"column:account_type;not null" json:"account_type"`
-	Reason            string  `gorm:"column:reason" json:"reason"`
 }
 
 // TableName TransferHistory's table name

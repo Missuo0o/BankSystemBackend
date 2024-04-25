@@ -1540,7 +1540,6 @@ func main() {
 		})
 	})
 
-	// Admin GetLoanInfo API
 	_ = r.Run(":8080")
 
 }

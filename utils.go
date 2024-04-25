@@ -31,16 +31,16 @@ func RoleAuthMiddleware(allowRole string) gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "Not logged in",
 			})
-			c.Abort() // 防止调用后续的处理器
+			c.Abort() // Prevent subsequent handlers from being called
 			return
 		} else if role != allowRole {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"message": "Unauthorized",
 			})
-			c.Abort() // 防止调用后续的处理器
+			c.Abort() // Prevent subsequent handlers from being called
 			return
 		}
-		// 如果通过认证，则继续处理请求
+		// If authentication is passed, continue processing the request
 		c.Next()
 	}
 }
