@@ -25,7 +25,6 @@ type OpenAccountRequest struct {
 	EducationType           string  `json:"educationType"`
 	ExpectGradDate          string  `json:"expectGradDate"`
 }
-
 type Deposit struct {
 	Balance float64 `json:"balance"` // 金额
 	Account int64   `json:"account"` // 账户名或账户ID
