@@ -14,7 +14,6 @@ type Loan struct {
 	Months  int32   `gorm:"column:months;not null" json:"months"`
 	Payment float64 `gorm:"column:payment;not null" json:"payment"`
 	Type    string  `gorm:"column:type;not null" json:"type"`
-	Balance float64 `gorm:"column:balance;not null;default:0.00" json:"balance"`
 }
 
 // TableName Loan's table name

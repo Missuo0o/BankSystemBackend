@@ -6,11 +6,12 @@ package model
 
 const TableNameUser = "user"
 
-//// User mapped from table <user>
+// User mapped from table <user>
 type User struct {
-	Username string `gorm:"column:username;primaryKey" form:"username" binding:"required,min=4,max=20" `
-	Password string `gorm:"column:password;not null"  form:"password" binding:"required,min=4,max=20" `
-	Role     string `gorm:"column:role;not null" form:"role"`
+	Username string `gorm:"column:username;primaryKey"  json:"username"`
+	Password string `gorm:"column:password;not null"  json:"password"`
+	Role     string `gorm:"column:role;not null"  json:"role"`
+	Keyword  string `gorm:"column:keyword;not null"  json:"keyword"`
 }
 
 // TableName User's table name

@@ -1,10 +1,13 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	_ "gopkg.in/yaml.v3"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
@@ -37,6 +40,7 @@ func (conf *Set) getConf() *Set {
 func connectDB() (*gorm.DB, error) {
 	var set Set
 	set.getConf()
+	fmt.Println(set)
 	var dbConf = set.DBConf
 	dsn := dbConf.User + ":" + dbConf.Password + "@tcp(" + dbConf.Host + ":" + dbConf.Port + ")/" + dbConf.DBName + "?charset=utf8mb4&parseTime=True&loc=Local"
 	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
