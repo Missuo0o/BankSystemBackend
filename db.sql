@@ -1,60 +1,60 @@
-create table university
+create table if not exists university
 (
-  id   bigint auto_increment
-    primary key,
-  name varchar(255) collate utf8mb4_general_ci not null
+    id   bigint auto_increment
+        primary key,
+    name varchar(255) collate utf8mb4_general_ci not null
 )
-  collate = utf8mb4_bin;
+    collate = utf8mb4_bin;
 
-create table user
+create table if not exists user
 (
-  username varchar(20)  not null
-    primary key,
-  password varchar(255) not null,
-  role     char         not null,
-  keyword  varchar(255) not null
+    username varchar(20)  not null
+        primary key,
+    password varchar(255) not null,
+    role     char         not null,
+    keyword  varchar(255) not null
 )
-  collate = utf8mb4_bin;
+    collate = utf8mb4_bin;
 
-create table customer
+create table if not exists customer
 (
-  id       bigint auto_increment
-    primary key,
-  fname    varchar(30) not null,
-  lname    varchar(30) not null,
-  state    varchar(30) not null,
-  city     varchar(2)  not null,
-  zip      varchar(5)  not null,
-  address  varchar(50) not null,
-  username varchar(20) null,
-  constraint customer_user_username_fk
-    foreign key (username) references user (username)
-      on update cascade on delete cascade
+    id       bigint auto_increment
+        primary key,
+    fname    varchar(30) not null,
+    lname    varchar(30) not null,
+    state    varchar(30) not null,
+    city     varchar(2)  not null,
+    zip      varchar(5)  not null,
+    address  varchar(50) not null,
+    username varchar(20) null,
+    constraint customer_user_username_fk
+        foreign key (username) references user (username)
+            on update cascade on delete cascade
 )
-  collate = utf8mb4_bin;
+    collate = utf8mb4_bin;
 
-create table account
+create table if not exists account
 (
-  number    bigint      not null
-    primary key,
-  fname     varchar(30) not null,
-  lname     varchar(30) not null,
-  state     varchar(30) not null,
-  city      varchar(2)  not null,
-  zip       varchar(5)  not null,
-  open_date datetime    not null,
-  id        bigint      not null,
-  address   varchar(50) not null,
-  type      char        not null,
-  constraint account_customers_id_fk
-    foreign key (id) references customer (id)
-      on update cascade on delete cascade,
-  constraint type_check
-    check (`type` in (_utf8mb4\'L\',_utf8mb4\'C\',_utf8mb4\'S\'))
+    number    bigint      not null
+        primary key,
+    fname     varchar(30) not null,
+    lname     varchar(30) not null,
+    state     varchar(30) not null,
+    city      varchar(2)  not null,
+    zip       varchar(5)  not null,
+    open_date datetime    not null,
+    id        bigint      not null,
+    address   varchar(50) not null,
+    type      char        not null,
+    constraint account_customers_id_fk
+        foreign key (id) references customer (id)
+            on update cascade on delete cascade,
+    constraint type_check
+        check (`type` in ('L', 'C', 'S'))
 )
-collate=utf8mb4_bin;
+    collate=utf8mb4_bin;
 
-create table checking
+create table if not exists checking
 (
     number  bigint                               not null
         primary key,
@@ -66,7 +66,7 @@ create table checking
 )
     collate = utf8mb4_bin;
 
-create table loan
+create table if not exists loan
 (
     number  bigint         not null
         primary key,
@@ -79,15 +79,15 @@ create table loan
         foreign key (number) references account (number)
             on update cascade on delete cascade,
     constraint check_account_type
-        check (`type` in (_utf8mb4\'STUDENT\',_utf8mb4\'HOME\',_utf8mb4\'PERSONAL\'))
+        check (`type` in ('STUDENT', 'HOME', 'PERSONAL'))
 )
-collate=utf8mb4_bin;
+    collate=utf8mb4_bin;
 
-create table home_loan
+create table if not exists home_loan
 (
     number                    bigint         not null
         primary key,
-    house_built_year          varchar(4)     not null,
+    house_build_year          varchar(4)     not null,
     insurance_acc_no          bigint         not null,
     insurance_company_name    varchar(50)    not null,
     insurance_company_state   varchar(30)    not null,
@@ -103,7 +103,7 @@ create table home_loan
 )
     collate = utf8mb4_bin;
 
-create table loan_payment
+create table if not exists loan_payment
 (
     id             bigint auto_increment
         primary key,
@@ -116,7 +116,7 @@ create table loan_payment
 )
     collate = utf8mb4_bin;
 
-create table savings
+create table if not exists savings
 (
     number  bigint                               not null
         primary key,
@@ -128,7 +128,7 @@ create table savings
 )
     collate = utf8mb4_bin;
 
-create table student_loan
+create table if not exists student_loan
 (
     number           bigint      not null
         primary key,
@@ -147,7 +147,7 @@ create table student_loan
 )
     collate = utf8mb4_bin;
 
-create table transfer_history
+create table if not exists transfer_history
 (
     id                  bigint auto_increment
         primary key,
@@ -164,4 +164,3 @@ create table transfer_history
             on update cascade on delete cascade
 )
     collate = utf8mb4_bin;
-
